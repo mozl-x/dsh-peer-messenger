@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Peer Messenger",
+    "description": "Cross-session agent messaging: list_peer_agents, send_agent_message, check_delivery over native relay provenance."
+  }
+}

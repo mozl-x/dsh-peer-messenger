@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "跨会话消息",
+    "description": "独立会话间的 Agent 互发消息：list_peer_agents / send_agent_message / check_delivery，复用原生 relay 来源。"
+  }
+}

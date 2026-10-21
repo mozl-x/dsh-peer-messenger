@@ -1,0 +1,6 @@
+# dsh-peer-messenger profile patch layer — insert one Host loader entry for the
+# plugin package. v1 is host-only (three agent tools); there is no client half,
+# so nothing is registered with dsh-client-modules.
+- insert:
+    - id: peer-messenger
+      name: 'dsh-peer-messenger'

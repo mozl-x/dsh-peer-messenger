@@ -1,0 +1,76 @@
+{
+  "name": "dsh-peer-messenger",
+  "version": "0.1.0",
+  "description": "跨独立会话的 Agent 互发消息：list_peer_agents / send_agent_message / check_delivery，复用 DSH 原生 relay 来源与原生渲染。",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mozl-x/dsh-peer-messenger.git"
+  },
+  "homepage": "https://github.com/mozl-x/dsh-peer-messenger#readme",
+  "bugs": {
+    "url": "https://github.com/mozl-x/dsh-peer-messenger/issues"
+  },
+  "author": "mozl-x",
+  "type": "module",
+  "main": "lib/index.js",
+  "icon": "./icon.svg",
+  "exports": {
+    ".": "./lib/index.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./locale/*.json": "./locale/*.json",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "icon.svg",
+    "locale/*.json",
+    "lib/index.js",
+    "lib/message.js",
+    "lib/admission.js",
+    "lib/discovery.js",
+    "lib/delivery.js",
+    "lib/receipt.js",
+    "cordis.patch.yml",
+    "README.md"
+  ],
+  "keywords": [
+    "deepseek-harness",
+    "dsh",
+    "dsh-plugin",
+    "cross-session",
+    "agent-message",
+    "relay",
+    "跨会话通信"
+  ],
+  "engines": {
+    "node": ">=24"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "dsh": {
+    "manifestVersion": 1,
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "compatibility": {
+      "dshReleases": {
+        "0.2.1-rc.2": "compatible"
+      }
+    }
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "~4.0.5",
+    "@deepseek-ai/dsh-agent": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-brand": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-llm": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-session": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-session-query": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-tools": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-workspace": "0.2.1-rc.2"
+  },
+  "scripts": {
+    "check": "node --check lib/index.js && node --check lib/message.js && node --check lib/admission.js && node --check lib/discovery.js && node --check lib/delivery.js && node --check lib/receipt.js",
+    "test": "node --test"
+  }
+}
