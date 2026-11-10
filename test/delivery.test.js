@@ -16,7 +16,7 @@ function mockAgent(id_, status, sink) {
   };
 }
 
-function mockCtx({ target = 'B', origin, archived = [], agent, resumeAgent }) {
+function mockCtx({ target = 'B', origin, archived = [], agent, resumeAgent, titles = {} }) {
   const liveAgents = agent ? [agent] : [];
   return {
     agents: {
@@ -32,7 +32,13 @@ function mockCtx({ target = 'B', origin, archived = [], agent, resumeAgent }) {
       async readSession(requested) {
         return { session: { id: requested ?? target, origin, createdAt: 1 } };
       },
-    },
+      async readTitleSnapshots(ids) {
+        return ids.map((id) => ({
+          sessionId: id,
+          status: 'fulfilled',
+          value: titles[id] === undefined ? {} : { title: { title: titles[id] } },
+        }));
+      },    },
     // ArchivedSessionIds is a readonly SessionId[] (branded strings at runtime).
     workspaceRegistry: { archivedSessionIds: archived.slice() },
     sessionProjections: { stateOf: () => null },
@@ -64,6 +70,40 @@ test('followup to idle live target delivers + writes ledger', async () => {
   assert.equal(ledger.get(String(r.messageId)).targetId, 'B');
 });
 
+test('the delivered header names both sessions, the mode and the time', async () => {
+  const { sink, deliver } = wire({ status: 'running', titles: { A: '发送方', B: '接收方' } });
+  await deliver('A', 'B', 'hi', 'steer');
+  const [first, second, body] = sink[0][1].content[0].text.split('\n');
+  assert.match(first, /来自《发送方》（A）/);
+  assert.match(first, /投递至《接收方》（B）/);
+  assert.match(second, /投递方式 当前回合纠偏/);
+  assert.match(second, /发送时间 \d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/);
+  assert.equal(body, 'hi');
+});
+
+test('the receipt reports the target title, mode and send time', async () => {
+  const { deliver } = wire({ titles: { B: '接收方' } });
+  const r = await deliver('A', 'B', 'hi', 'followup');
+  assert.equal(r.targetTitle, '接收方');
+  assert.equal(r.senderTitle, null);
+  assert.equal(r.mode, 'followup');
+  assert.match(r.sentAt, /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
+});
+
+test('a failed title observation does not fail the delivery', async () => {
+  const { sink, deliver } = wire();
+  const ctx = mockCtx({ agent: mockAgent('B', 'idle', sink) });
+  ctx.sessionQuery.readTitleSnapshots = async (ids) => ids.map((id) => ({
+    sessionId: id,
+    status: 'rejected',
+    reason: new Error('title store offline'),
+  }));
+  const deliver2 = createDelivery({ ctx, budget: createBudget(), ledger: new Map() });
+  const r = await deliver2('A', 'B', 'hi', 'followup');
+  assert.equal(r.accepted, true);
+  assert.equal(r.targetTitle, null);
+  assert.match(sink[0][1].content[0].text, /来自会话 A/);
+});
 test('self-send rejected before budget/inbox', async () => {
   const { budget, deliver } = wire();
   await assert.rejects(() => deliver('A', 'A', 'x', 'followup'), /self_message/);

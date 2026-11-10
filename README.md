@@ -2,7 +2,7 @@
 
 跨**独立会话**的 Agent 互发消息。复用 DSH 0.2.1 原生的 relay 消息来源与原生 `RelayBody` 渲染，插件只负责寻址、准入、投递与「传输回执」，不重建第二套收件箱、不改渲染、不自动回复、不广播、不加白名单。
 
-**平台**：DeepSeek Harness `0.2.1-rc.2`（host-only，无 client 半）。
+**平台**：DeepSeek Harness `>=0.2.1-rc.2`（host-only，无 client 半）。以最低支持版本为下限、向前开放：已验证 `0.2.1-rc.2`，`0.2.1-rc.4` 等更高版本亦可加载，不在 `package.json` 里写死上限。
 
 ## 三个工具
 
@@ -18,6 +18,17 @@
 - `inject`：注入后台上下文；**目标必须 `running`**。
 
 `offline` 目标以默认参数冷恢复（resume）后按 `followup` 投递；恢复句柄被进程内缓存并经 `ctx.effect` 统一释放。
+
+### 两侧可见的信息
+
+| 侧 | 可见 |
+|---|---|
+| 发送端（`send_agent_message` 回执） | 目标会话《标题》（会话ID）、投递方式、发送时间、目标状态、消息ID、**消息内容摘要**（首行 + 剩余行数/字符数） |
+| 接收端（relay 消息首行） | 来源会话《标题》（会话ID）、**接收方会话**《标题》（会话ID）、投递方式、发送时间、正文全文 |
+
+原生 relay source 是**封闭记录**：durable 格式的 v2→v3 迁移只接受 `{kind, form, senderSessionId}` 三个键，多一个键即迁移失败。因此标题、投递方式、发送时间不能随 source 透传，只能承载在消息首行——这是接收端唯一会渲染的载体。
+
+会话标题取自 `sessionQuery.readTitleSnapshots`；标题缺失或读取失败时退回裸会话 ID，投递照常成功（标题是辅助信息，不是消息身份）。
 
 ### 回执状态（仅传输层）
 `pending`（仍在待处理收件箱里折叠到）→ `claimed`（已提交进会话日志，目标尚未开始产出）→ `processed`（目标在你的消息之后开始产出）。
@@ -42,6 +53,8 @@
 15. fork 边界：继承前缀（`inheritedEventCount` 之前）的事件永不匹配为「刚发的这条」（上游 issue#2）。
 16. 任何投递失败都在 `reserve` 之后释放预算槽，绝不泄漏额度。
 17. v1 host-only：无 client 包，**不读取其它插件的 DOM**（从设计上规避上游 issue#4 的文本正则抓取 bug；来源身份取结构化 relay source）。
+18. relay source 保持封闭三键 `{kind, form, senderSessionId}`，**不加任何自定义键**（durable v2→v3 迁移会拒绝多键）；投递元信息一律走消息首行。
+19. 会话标题是辅助信息：读取失败或缺失时退回裸会话 ID，**绝不因标题失败而让投递失败**。
 
 ## 上游经验吸收（`GengDaPeng/dsh-agent-message`）
 实现其架构 v2 文档与 7 个 issue 的教训：归档拒绝、subagent 来源排除（放行 fork）、自发拒绝、滚动预算、回执「claimed≠done」、离线恢复 + 句柄释放、恢复窗口复查。仅采纳 PR#10 的 API 纠正（`workspaceRegistry` 访问器、投影 `cwd`、`uiWorkspace.openSession`、`configForms`），**不采纳**其白名单/同项目限制。
@@ -58,9 +71,10 @@ plugin_manager  action: install_bundle  target: <本目录绝对路径>
 ## 开发校验（无需运行 Harness）
 ```
 npm run check   # 逐模块语法检查
-npm test        # 29 项：admission / delivery / receipt / 模块契约 + 三工具注册与执行（经 node_modules 解析真实 dsh 包）
+npm test        # 51 项：admission / delivery / receipt / presentation / message / 模块契约 + 三工具注册与执行（经 node_modules 解析真实 dsh 包）
 ```
 
 ## 假设
 - 「任意互相发送」覆盖同 profile 下所有非归档、非 subagent 的独立会话，不要求同项目。
 - 回执为尽力而为的传输观察，进程重启后旧 `message_id` 视为 `unknown`（无持久 spool）。
+- 接收端的「接收位置」（第几轮、第几步）由 DSH 客户端渲染，插件无法提供；插件只保证来源、接收方、投递方式、发送时间四项在正文首行可见。
